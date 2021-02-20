@@ -1,0 +1,45 @@
+version: '3'
+
+services:
+  reverse-proxy:
+    image: traefik:v2.1
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+
+    ports:
+      - "80:80"
+      - "8080:8080"
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  backend:
+    image: docker.pkg.github.com/beda-app/beda-backend/beda-backend:0.1.0
+
+    env_file:
+      - ./config/backend.env
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.backend.loadbalancer.server.port=80"
+      - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
+      - "traefik.http.middlewares.api-strip-prefix.stripprefix.prefixes=/api"
+      - "traefik.http.routers.backend.middlewares=api-strip-prefix@docker"
+
+  frontend:
+    image: docker.pkg.github.com/beda-app/beda-frontend/beda-frontend:0.1.0
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.vk-mini-app.loadbalancer.server.port=80"
+      - "traefik.http.routers.vk-mini-app.rule=PathPrefix(`/`)"
+
+  database:
+    image: postgres:12.1-alpine
+
+    env_file:
+      - ./config/database.env
+
+    volumes:
+      - ./data/pgdata:/var/lib/postgresql/data
